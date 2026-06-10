@@ -12,11 +12,11 @@ Works in any browser. On iPhone: open the link in Safari, rotate to landscape, a
 
 | Fighter | Special | Style |
 |---|---|---|
-| **VERA** — The Falconess | LOVE TALON | Balanced. Her eagle flies point-blank into your business. |
-| **SHADES** — Too Cool to Flinch | SHADE DIVE | Heavy hitter. His eagle dive-bombs from the ceiling. |
-| **ROOST** — The Calm Center | WING WALL | Tank. His eagle orbits him like a feathered moat. |
-| **SCREECH** — !! It Lives on His Head !! | SONIC SCREECH | Speedster. The eagle on his head screams people over. |
-| **HUH?** — Even the Eagle Wonders | WHO KNOWS? | Trickster. Vanishes, reappears behind you. Eagle included. |
+| **KAIT-LI** — The Falconess | LOVE TALON | Balanced. Her eagle flies point-blank into your business. |
+| **SHUN-DAN** — Too Cool to Flinch | SHADE DIVE | Heavy hitter. His eagle dive-bombs from the ceiling. |
+| **DUTCHESS** — The Calm Center | WING WALL | Tank. His eagle orbits him like a feathered moat. |
+| **JOHNNY FABES** — !! It Lives on His Head !! | SONIC SCREECH | Speedster. The eagle on his head screams people over. |
+| **WARINACCHIO** — Even the Eagle Wonders | WHO KNOWS? | Trickster. Vanishes, reappears behind you. Eagle included. |
 
 ## Controls
 
