@@ -1737,6 +1737,17 @@ buildEagles();
 buildPortraits();
 makeBG();
 audioBoot(); // create the AudioContext eagerly (suspended) so first tap = instant sound
+// Try to start music with ZERO interaction. Browsers usually block this until
+// the first tap (autoplay policy), but where it's allowed — e.g. Chrome for
+// returning visitors, or kiosk/standalone modes — this gets music playing at load.
+function tryAutoplay(){if(AC&&AC.state==='suspended')AC.resume().catch(()=>{});}
+tryAutoplay();
+const autoTry=setInterval(()=>{
+  tryAutoplay();
+  if(AC&&AC.state==='running')clearInterval(autoTry); // ensureMusic picks it up next frame
+},400);
+addEventListener('visibilitychange',tryAutoplay);
+addEventListener('focus',tryAutoplay);
 let lastTick=0;
 function frame(){
   lastTick=performance.now();
