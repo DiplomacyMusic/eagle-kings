@@ -152,14 +152,28 @@ function drawRotateHint(){
 }
 
 // ------------------------- AUDIO CORE ----------------------
-let AC=null,MUTED=false,noiseBuf=null;
+let AC=null,MUTED=false,noiseBuf=null,audioUnlocked=false;
 function audioBoot(){
   if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();
     const n=AC.sampleRate*1.2|0;noiseBuf=AC.createBuffer(1,n,AC.sampleRate);
     const d=noiseBuf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
   }catch(e){}}
-  if(AC&&AC.state==='suspended')AC.resume();
+  if(!AC)return;
+  const go=()=>{
+    if(!audioUnlocked&&AC.state==='running'){
+      audioUnlocked=true;
+      // iOS unlock: poke the output once inside the gesture
+      const s=AC.createBufferSource();s.buffer=AC.createBuffer(1,1,22050);
+      s.connect(AC.destination);s.start(0);
+    }
+    try{ensureMusic();}catch(e){}
+  };
+  if(AC.state==='suspended')AC.resume().then(go).catch(()=>{});
+  else go();
 }
+// unlock from ANY interaction, including taps on the letterbox around the canvas
+addEventListener('pointerdown',audioBoot,{passive:true});
+addEventListener('touchstart',audioBoot,{passive:true});
 function beep(f0,f1,dur,type,vol,when){
   if(!AC||MUTED)return;
   const o=AC.createOscillator(),g=AC.createGain(),t=when||AC.currentTime;
@@ -200,6 +214,51 @@ function eagleScream(o){
     // breathy noise layer
     noiseBurst(dur*0.5,vol*0.25,true,t);
   }
+}
+// ----------------- GAH / UGH HIT VOCALS ---------------------
+// formant-filtered sawtooth bursts = synthesized pain grunts
+function grunt(o){
+  o=o||{};
+  if(!AC||MUTED)return;
+  const t=AC.currentTime,dur=o.dur||0.22;
+  const p=(o.pitch||1)*(0.9+Math.random()*0.22);   // every GAH is unique
+  const o1=AC.createOscillator(),o2=AC.createOscillator();
+  o1.type='sawtooth';o2.type='square';
+  const f0=165*p;
+  o1.frequency.setValueAtTime(f0,t);
+  o1.frequency.exponentialRampToValueAtTime(Math.max(30,f0*0.35),t+dur);
+  o2.frequency.setValueAtTime(f0*0.5,t);
+  o2.frequency.exponentialRampToValueAtTime(Math.max(25,f0*0.18),t+dur);
+  // mouth shape: high formant = "GAH!", low = "UGH"
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.Q.value=1.2;
+  bp.frequency.setValueAtTime((o.formant||900)*(0.8+Math.random()*0.5),t);
+  bp.frequency.exponentialRampToValueAtTime(260,t+dur);
+  const g=AC.createGain();
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(o.vol||.24,t+0.015);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o1.connect(bp);o2.connect(bp);bp.connect(g);g.connect(AC.destination);
+  o1.start(t);o2.start(t);o1.stop(t+dur+.02);o2.stop(t+dur+.02);
+  noiseBurst(dur*0.4,(o.vol||.24)*0.25,true,t); // breath layer
+}
+function koScream(pitch){
+  if(!AC||MUTED)return;
+  const t=AC.currentTime,dur=0.7;
+  const o1=AC.createOscillator();o1.type='sawtooth';
+  const f0=300*(pitch||1);
+  o1.frequency.setValueAtTime(f0,t);
+  o1.frequency.exponentialRampToValueAtTime(f0*0.22,t+dur);
+  const vib=AC.createOscillator(),vg=AC.createGain();
+  vib.type='sine';vib.frequency.value=13;vg.gain.value=f0*0.09;
+  vib.connect(vg);vg.connect(o1.frequency);
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.Q.value=1;
+  bp.frequency.setValueAtTime(1150,t);bp.frequency.exponentialRampToValueAtTime(280,t+dur);
+  const g=AC.createGain();
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(.3,t+0.02);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o1.connect(bp);bp.connect(g);g.connect(AC.destination);
+  o1.start(t);o1.stop(t+dur+.05);vib.start(t);vib.stop(t+dur);
 }
 const sfx={
   whoosh:()=>noiseBurst(.08,.06,true),
@@ -328,7 +387,7 @@ function victorySting(){
   eagleScream({n:3,base:2600,dur:.5,vol:.13,gap:.22});
 }
 function ensureMusic(){
-  if(!AC||MUTED)return;
+  if(!AC||MUTED||AC.state!=='running')return;
   let want=null;
   if(game.state==='title'||game.state==='select'||game.state==='vs')want='title';
   else if(game.state==='fight'||game.state==='roundover')want='fight';
@@ -701,27 +760,27 @@ function drawEagleP(x,y,sc,t,o){
 const ROSTER=[
  {key:'vera',name:'KAIT-LI',epithet:'THE FALCONESS',special:'LOVE TALON',
   shirt:'#f3eee2',shirtShade:'#b0a89a',pants:'#ddd5c2',skin:'#ecc09a',hair:'#241a14',hairStyle:'long',
-  hp:100,speed:3.4,jumpV:14.5,dmgMul:1.0,perch:'arm',motif:'heart',expr:'scowl',
+  hp:100,speed:3.4,jumpV:14.5,dmgMul:1.0,perch:'arm',voice:1.5,motif:'heart',expr:'scowl',
   quote:'"Love is just a talon aimed at the heart."',
   desc:'Balanced. Her eagle flies point-blank into your business.'},
  {key:'shades',name:'SHUN-DAN',epithet:'TOO COOL TO FLINCH',special:'SHADE DIVE',
   shirt:'#23232a',pants:'#39404c',skin:'#e6b88c',hair:'#1c130e',hairStyle:'short',
-  hp:110,speed:2.9,jumpV:13,dmgMul:1.12,perch:'shoulder',shadesEagle:true,motif:'star',expr:'stoic',
+  hp:110,speed:2.9,jumpV:13,dmgMul:1.12,perch:'shoulder',voice:0.78,shadesEagle:true,motif:'star',expr:'stoic',
   quote:'"My eagle wears them indoors. Deal with it."',
   desc:'Heavy hitter. His eagle dive-bombs from the ceiling.'},
  {key:'roost',name:'DUTCHESS',epithet:'THE CALM CENTER',special:'WING WALL',
   shirt:'#6e4b2c',pants:'#566073',skin:'#efc29c',hair:'#2b211a',hairStyle:'messy',
-  hp:125,speed:2.5,jumpV:12,dmgMul:1.18,perch:'front',motif:'shield',expr:'calm',stubble:true,
+  hp:125,speed:2.5,jumpV:12,dmgMul:1.18,perch:'front',voice:0.7,motif:'shield',expr:'calm',stubble:true,
   quote:'"You never had a chance. He never left my lap."',
   desc:'Tank. His eagle orbits him like a feathered moat.'},
  {key:'screech',name:'JOHNNY FABES',epithet:'!! IT LIVES ON HIS HEAD !!',special:'SONIC SCREECH',
   shirt:'#c1261e',pants:'#2d3850',skin:'#dfa878',hair:'#3a2a1c',hairStyle:'curly',
-  hp:95,speed:3.8,jumpV:15.5,dmgMul:0.95,perch:'head',screamEagle:true,motif:'bang',expr:'grit',
+  hp:95,speed:3.8,jumpV:15.5,dmgMul:0.95,perch:'head',voice:1.15,screamEagle:true,motif:'bang',expr:'grit',
   quote:'"WHAT? I CAN\'T HEAR YOU. NOBODY CAN."',
   desc:'Speedster. The eagle on his head screams people over.'},
  {key:'huh',name:'WARINACCHIO',epithet:'EVEN THE EAGLE WONDERS',special:'WHO KNOWS?',
   shirt:'#9aa0a8',pants:'#3d4350',skin:'#ecc29c',hair:'#241c16',hairStyle:'mop',
-  hp:90,speed:3.6,jumpV:14.5,dmgMul:1.0,perch:'low',motif:'question',expr:'smirk',stubble:true,
+  hp:90,speed:3.6,jumpV:14.5,dmgMul:1.0,perch:'low',voice:0.95,motif:'question',expr:'smirk',stubble:true,
   quote:'"...how did I get behind you? Honestly? No idea."',
   desc:'Trickster. Vanishes, reappears behind you. Eagle included.'},
 ];
@@ -881,12 +940,16 @@ class Fighter{
       this.hp=Math.max(1,this.hp-dmg*0.15);
       this.stun=9;this.vx=dir*2.5;this.meter=Math.min(100,this.meter+6);
       sfx.block();sparks(this.x+dir*-18,this.y-70,5,'#6ec3ff');
+      grunt({pitch:this.data.voice,dur:.1,vol:.1,formant:420}); // muffled "mph"
       return false;
     }
     if(this.armored)dmg*=0.65;
     this.hp-=dmg;this.meter=Math.min(100,this.meter+12);
     const hx=this.x,hy=this.y-(this.crouching?58:92);
     sparks(hx,hy,8);feathers(hx,hy,4);
+    // GAH! on big hits, UGH on jabs
+    grunt(dmg>=9?{pitch:this.data.voice,dur:.3,vol:.26,formant:1150}
+                :{pitch:this.data.voice,dur:.18,vol:.2,formant:700});
     if(!this.armored){
       this.stun=opts.stun||16;this.vx=dir*kb;
       if(opts.launch){this.vy=-7.5;this.airborne=true;}
@@ -896,7 +959,7 @@ class Fighter{
     if(this.hp<=0){
       this.hp=0;this.ko=true;this.koT=0;this.vy=-9;this.vx=dir*5;this.airborne=true;
       this.invis=false;this.eagleAway=false;
-      feathers(hx,hy,18,true);sfx.ko();shake=16;hitstop=14;
+      feathers(hx,hy,18,true);sfx.ko();koScream(this.data.voice);shake=16;hitstop=14;
       roundOver(this===P1?P2:P1);
     }
     return true;
@@ -1673,6 +1736,7 @@ buildSprites();
 buildEagles();
 buildPortraits();
 makeBG();
+audioBoot(); // create the AudioContext eagerly (suspended) so first tap = instant sound
 let lastTick=0;
 function frame(){
   lastTick=performance.now();
